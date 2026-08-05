@@ -1,0 +1,51 @@
+{
+  "reddit_feeds": [
+    "https://www.reddit.com/r/PokemonRestocks/new/.rss?feed=0dc26df927e920bd1c423ed13b0c2eeb9df42590&user=BoysenberryFew1727"
+  ],
+
+  "blacklist_keywords": [
+    "pitch black", "perfect order", "chaos rising"
+  ],
+
+  "sites": [
+    {
+      "name": "Pokemon Center",
+      "url_patterns": ["pokemoncenter.com", "pokemon center","pokecenter"],
+      "allow_keywords": [
+        "queue is open", "queue started", "queue is live",
+        "que is open", "que started", "que is live",
+        "line is open", "line started", "line is live",
+        "live", "open", "now"
+      ],
+      "block_keywords": [
+        "sold out", "queue closed", "queue is closed", "queue ended",
+        "line closed", "cancelled", "canceled", "joke", "april fools", "ad", "ad:", "Canada", "united kingdom", "UK", "CAD"
+      ],
+      "alert_link": "https://www.pokemoncenter.com/"
+    },
+    {
+      "name": "Best Buy",
+      "url_patterns": ["bestbuy.com", "best buy"],
+      "allow_keywords": [
+        "raffle", "raffel", "raffle is open", "raffle is live", "raffle started", "special sales", "special sale", "exclusive sale", "sale event", "invite"
+      ],
+      "block_keywords": [
+        "raffle closed", "raffle is closed", "raffle ended",
+        "sold out", "cancelled", "canceled"
+      ],
+      "alert_link": "https://www.bestbuy.com/"
+    },
+    {
+      "name": "Target",
+      "url_patterns": ["target.com", "target"],
+      "allow_keywords": [
+        "in stock", "back in stock", "restocked", "live now",
+        "just dropped", "add to cart", "available now"
+      ],
+      "block_keywords": [
+        "sold out", "out of stock", "cancelled", "canceled", "joke", "april fools", "tin", "tins", "ex"
+      ],
+      "alert_link": "https://www.target.com/"
+    }
+  ]
+}

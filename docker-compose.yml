@@ -1,0 +1,7 @@
+services:
+  matrix:
+    container_name: matrix
+    build: .
+    restart: unless-stopped
+    volumes:
+      - ./:/app
