@@ -38,6 +38,7 @@ USER_AGENT = "PokemonRestockMonitor/1.0 (personal restock alert bot)"
 # tcin.py lives next to this file
 TCIN_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tcin.py")
 TCIN_LOOKUP_TIMEOUT = 25  # seconds
+SEARCH_LOOKUP_TIMEOUT = 25  # seconds, for the manual !search command
 
 
 # ── Config loading ───────────────────────────────────────────────────────────
@@ -205,6 +206,52 @@ async def run_tcin_lookup(product_name, official_only=True, timeout=TCIN_LOOKUP_
     except json.JSONDecodeError as e:
         print(f"[tcin] couldn't parse output for {product_name!r}: {e} -- raw: {stdout[:300]!r}")
         return None
+
+
+# ── tcin.py manual search (for the !search Matrix command) ──────────────────
+async def run_tcin_search(query, count=5, official_only=False, timeout=SEARCH_LOOKUP_TIMEOUT):
+    """Runs tcin.py for `query` WITHOUT --auto, so it returns the top
+    `count` candidates (title/tcin/price/stock/match score) instead of
+    just guessing the single best one.
+
+    This is for manual use via the Matrix !search command -- when the
+    automatic reddit-title-derived query didn't find anything (or found
+    the wrong thing) and a person wants to reword the product name by
+    hand and try again.
+
+    Returns the raw text tcin.py would print to stdout, or a short
+    human-readable error string if the lookup failed/timed out.
+    """
+    cmd = [sys.executable, TCIN_SCRIPT, query, "--count", str(count)]
+    if official_only:
+        cmd.append("--official-only")
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        print(f"[search] lookup for {query!r} timed out after {timeout}s")
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        return f"Search for {query!r} timed out after {timeout}s. Try a shorter/simpler query."
+    except Exception as e:
+        print(f"[search] failed to launch lookup for {query!r}: {e}")
+        return f"Failed to launch search for {query!r}: {e}"
+
+    out = stdout.decode(errors="replace").strip()
+    err = stderr.decode(errors="replace").strip()
+
+    if proc.returncode != 0:
+        print(f"[search] lookup for {query!r} exited {proc.returncode}: {(err or out)[:300]}")
+        return out or err or f"Search for {query!r} failed (exit {proc.returncode})."
+
+    return out or f"No output for {query!r}."
 
 
 def format_tcin_result(result):
