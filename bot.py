@@ -3,7 +3,7 @@ import json
 import time
 import asyncio
 from nio import AsyncClient, MatrixRoom, RoomMessageText, InviteMemberEvent
-from monitor import run_monitor
+from monitor import run_monitor, run_tcin_search
 
 with open("secrets.json", "r", encoding="utf-8") as f:
     secrets = json.load(f)
@@ -33,6 +33,42 @@ async def message_callback(room: MatrixRoom, event: RoomMessageText):
             room_id=room.room_id,
             message_type="m.room.message",
             content={"msgtype": "m.text", "body": "Pong!"}
+        )
+    elif event.body.strip() == "!search" or event.body.startswith("!search "):
+        # Manual Target search: !search "reworded product name"
+        # Runs tcin.py directly (no --auto) so it returns the top few
+        # candidates instead of just guessing the single best match.
+        # Meant for when the bot's automatic title-derived query didn't
+        # find the item (or found the wrong one) and a person wants to
+        # reword it by hand.
+        query = event.body[len("!search"):].strip()
+
+        # allow optional wrapping quotes: !search "prismatic evolutions booster bundle"
+        if len(query) >= 2 and query[0] == '"' and query[-1] == '"':
+            query = query[1:-1].strip()
+
+        if not query:
+            await client.room_send(
+                room_id=room.room_id,
+                message_type="m.room.message",
+                content={"msgtype": "m.text",
+                         "body": 'Usage: !search "product name" '
+                                 '— e.g. !search "prismatic evolutions booster bundle"'}
+            )
+            return
+
+        await client.room_send(
+            room_id=room.room_id,
+            message_type="m.room.message",
+            content={"msgtype": "m.text", "body": f"Searching Target for {query!r}…"}
+        )
+
+        result_text = await run_tcin_search(query)
+
+        await client.room_send(
+            room_id=room.room_id,
+            message_type="m.room.message",
+            content={"msgtype": "m.text", "body": result_text}
         )
 
 async def invite_callback(room, event):
