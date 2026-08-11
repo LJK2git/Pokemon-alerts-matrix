@@ -8,6 +8,8 @@ monitor.py runs a script pulling new info from a reddit community and searches t
 
 tcin.py is used by monitor.py to find the link of a official product from target when it is found by the monitor.(finding a link may fail if this happens search for the product like this "!search product name" it will send the most likely links) tcin.py also searches for only official products meaning products from third party sellers will be blocked out. Manually searching a product on target is impossible as they will only show you third party sellers and not their official products so i recommend to always use the !search command when automatic link finding fails.
 
+bestbuy.py is used for checking if the prismatic evolutions product has an invitation button meaning you could join the raffle, this is checked daily with the default config at 5 pm est.
+
 config.json is the config for the keywords the monitor searches for and you can block out certain products or sets like pitch black or chaos rising so you wont get alerts for them.
 
 To install copy the repo, add your matrix info in secrets.json, you may also change config.json to your prefrences, install docker, and do "docker compose up -d --build"
