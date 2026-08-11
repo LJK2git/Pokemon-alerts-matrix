@@ -7,6 +7,10 @@
     "pitch black", "perfect order", "chaos rising"
   ],
 
+  "bestbuy_urls": [
+    "https://www.bestbuy.com/site/pokemon-trading-card-game-scarlet-violet-prismatic-evolutions-super-premium-collection/6621081.p?skuId=6621081"
+  ],
+
   "sites": [
     {
       "name": "Pokemon Center",
@@ -27,7 +31,7 @@
       "name": "Best Buy",
       "url_patterns": ["bestbuy.com", "best buy"],
       "allow_keywords": [
-        "raffle", "raffel", "raffle is open", "raffle is live", "raffle started", "special sales", "special sale", "exclusive sale", "sale event", "invite"
+        "raffle", "raffel", "raffle is open", "raffle is live", "raffle started", "special sales", "special sale", "exclusive sale", "sale event", "invite","invitation"
       ],
       "block_keywords": [
         "raffle closed", "raffle is closed", "raffle ended",
