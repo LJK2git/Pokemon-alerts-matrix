@@ -6,7 +6,7 @@ bot.py runs the matrix bot
 
 monitor.py runs a script pulling new info from a reddit community and searches through it for new items, it currently supports target drops, bestbuy drops, and pokemon center drops.
 
-tcin.py is used by monitor.py to find the link of a official product from target when it is found by the monitor.(finding a link may fail if this happens search for the product like this "!search product name" it will send the most likely links) tcin.py also searches for only official products meaning products from third party sellers will be blocked out. Manually searching a product on target is impossible as they will only show you third party sellers and not their official products so i recommend to always use the !search command when automatic link finding fails.
+tcin.py is used by monitor.py to find the link of a official product from target when it is found by the monitor.(finding a link may fail if this happens search for the product like this "!search product name" it will send the most likely links) tcin.py also searches for only official products meaning products from third party sellers will be blocked out. Manually searching a product on target is impossible as they will only show you third party sellers and not their official products so i recommend to always use the !search command when automatic link finding fails. bestbuy.py checks if bestbuy has a raffle for prismatic evolutions, it creates debug screenshots that u will find in the debug_runs file so u can check if its working properly, it will check this at 5 pm est daily.
 
 config.json is the config for the keywords the monitor searches for and you can block out certain products or sets like pitch black or chaos rising so you wont get alerts for them.
 
