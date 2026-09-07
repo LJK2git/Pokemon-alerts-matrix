@@ -6,9 +6,17 @@ import re
 import sys
 import time
 from collections import deque
+from datetime import datetime, timedelta
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # pragma: no cover - Python <3.9 fallback, shouldn't hit this
+    ZoneInfo = None
 
 import feedparser
 import requests
+
+from bestbuy import check_urls_for_invite
 
 # ── Config ───────────────────────────────────────────────────────────────────
 CONFIG_FILE = "config.json"
@@ -39,6 +47,14 @@ USER_AGENT = "PokemonRestockMonitor/1.0 (personal restock alert bot)"
 TCIN_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tcin.py")
 TCIN_LOOKUP_TIMEOUT = 25  # seconds
 SEARCH_LOOKUP_TIMEOUT = 25  # seconds, for the manual !search command
+
+# ── Best Buy daily check config ─────────────────────────────────────────────
+# Runs once a day at this hour (24h, America/New_York) -- handles EST/EDT
+# automatically via zoneinfo, so this stays "5pm ET" year-round.
+BESTBUY_CHECK_HOUR_ET = 17
+BESTBUY_CHECK_MINUTE_ET = 0
+BESTBUY_TZ = ZoneInfo("America/New_York") if ZoneInfo else None
+BESTBUY_HEADLESS = True
 
 
 # ── Config loading ───────────────────────────────────────────────────────────
@@ -396,6 +412,90 @@ async def watch_reddit_feed(feed_url, compiled_sites, say, offset, blacklist_pat
             backoff = min(backoff * 2, REDDIT_BACKOFF_MAX)
 
 
+# ── Best Buy daily invite check ──────────────────────────────────────────────
+def _seconds_until_next_bestbuy_check():
+    """Seconds from now until the next BESTBUY_CHECK_HOUR_ET:MINUTE_ET in
+    America/New_York. If that time already passed today, targets tomorrow.
+    Falls back to naive local time (no DST correction) if zoneinfo/tzdata
+    isn't available on this system."""
+    if BESTBUY_TZ is not None:
+        now = datetime.now(BESTBUY_TZ)
+    else:
+        now = datetime.now()
+
+    target = now.replace(
+        hour=BESTBUY_CHECK_HOUR_ET,
+        minute=BESTBUY_CHECK_MINUTE_ET,
+        second=0,
+        microsecond=0,
+    )
+    if target <= now:
+        target += timedelta(days=1)
+
+    return (target - now).total_seconds()
+
+
+async def run_daily_bestbuy_check(say):
+    """
+    Runs once a day at BESTBUY_CHECK_HOUR_ET:BESTBUY_CHECK_MINUTE_ET
+    (America/New_York). Reads `bestbuy_urls` from config.json fresh on
+    every run (so editing the config takes effect without a restart) and
+    checks each one for a clickable invite/raffle button via bestbuy.py.
+
+    - Invite found on a URL -> alert sent into the Matrix room via `say`.
+    - Invite not found -> nothing sent to Matrix, just a print (log-only),
+      per spec.
+
+    check_urls_for_invite() runs Selenium synchronously, so it's pushed
+    onto a thread via asyncio.to_thread to avoid blocking the event loop
+    (and therefore the reddit watchers / matrix sync) for however long
+    the browser automation takes.
+    """
+    while True:
+        wait_s = _seconds_until_next_bestbuy_check()
+        wait_h = wait_s / 3600
+        print(f"[bestbuy] Next daily check in {wait_h:.2f}h "
+              f"(target {BESTBUY_CHECK_HOUR_ET:02d}:{BESTBUY_CHECK_MINUTE_ET:02d} ET)")
+        await asyncio.sleep(wait_s)
+
+        try:
+            cfg = await load_config()
+        except Exception as e:
+            print(f"[bestbuy] Could not reload {CONFIG_FILE} for daily check: {e}")
+            # Don't loop tight on a bad config -- back off a bit before
+            # recomputing the next scheduled time.
+            await asyncio.sleep(60)
+            continue
+
+        urls = cfg.get("bestbuy_urls", [])
+        if not urls:
+            print(f"[bestbuy] No bestbuy_urls configured in {CONFIG_FILE} — skipping today's check.")
+            # Sleep past the target minute so we don't immediately re-fire
+            # in a loop before the next scheduled slot is computed.
+            await asyncio.sleep(60)
+            continue
+
+        print(f"[bestbuy] Running daily invite check for {len(urls)} URL(s)")
+        try:
+            results = await asyncio.to_thread(check_urls_for_invite, urls, BESTBUY_HEADLESS)
+        except Exception as e:
+            print(f"[bestbuy] Daily check crashed: {e}")
+            await asyncio.sleep(60)
+            continue
+
+        for url, found in results:
+            if found:
+                print(f"[bestbuy] FOUND invite button — {url}")
+                say(f"[Best Buy] Invitation request button found!\n{url}")
+            else:
+                print(f"[bestbuy] No invite button found — {url}")
+
+        # Sleep past the target minute so this loop iteration's "already
+        # ran today" state can't immediately re-trigger before the next
+        # _seconds_until_next_bestbuy_check() call rolls over to tomorrow.
+        await asyncio.sleep(60)
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 async def run_monitor(say):
     """
@@ -429,6 +529,10 @@ async def run_monitor(say):
     if blacklist_pattern:
         print(f"  Blacklist keywords: {cfg.get('blacklist_keywords', [])}")
 
+    bestbuy_urls = cfg.get("bestbuy_urls", [])
+    print(f"  Best Buy daily check: {len(bestbuy_urls)} URL(s), "
+          f"{BESTBUY_CHECK_HOUR_ET:02d}:{BESTBUY_CHECK_MINUTE_ET:02d} ET")
+
     tasks = [
         asyncio.create_task(
             watch_reddit_feed(feed_url, compiled_sites, say, offset=i * REDDIT_STAGGER,
@@ -436,6 +540,7 @@ async def run_monitor(say):
         )
         for i, feed_url in enumerate(feeds)
     ]
+    tasks.append(asyncio.create_task(run_daily_bestbuy_check(say)))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for r in results:
