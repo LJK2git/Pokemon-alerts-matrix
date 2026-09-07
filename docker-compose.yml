@@ -3,5 +3,6 @@ services:
     container_name: matrix
     build: .
     restart: unless-stopped
+    shm_size: '2gb'
     volumes:
       - ./:/app
